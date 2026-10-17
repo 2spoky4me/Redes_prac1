@@ -1,0 +1,73 @@
+name: redes_prac1
+
+services:
+  db_prod:
+    image: postgres:16-alpine
+    container_name: db_prod
+    env_file: .env.prod
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - vol_prod:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    networks:
+      - red_prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h localhost -p 5432"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  cache:
+    image: redis:7-alpine
+    container_name: cache
+    networks:
+      - red_prod
+
+  web_prod:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: web_prod
+    depends_on:
+      db_prod:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    env_file: .env.prod
+    ports:
+      - "${WEB_PORT}:8000"
+    networks:
+      - red_prod
+    healthcheck:
+    # Verifica que la web funciona de verdad (DB/Redis accesibles). Si no, marca unhealthy.
+      test:
+        -  CMD-SHELL   # Ejecuta el comando usando un shell dentro del contenedor
+        - >
+          python - << 'PY'     # Inicia un script Python embebido
+          import json, urllib.request, sys
+          try:
+            # Llama al endpoint /status de la propia aplicación
+            j = json.load(urllib.request.urlopen('http://localhost:8000/status'))
+          
+            # Si DB y Redis están conectados, devolver exit 0 (healthy)
+            # Si alguno falla → exit 1 (unhealthy)
+            sys.exit(0 if j.get('db_connected') and j.get('cache_connected') else 1)
+          except:
+            # Si ocurre cualquier error (endpoint no responde, JSON inválido, etc.)
+            # se marca como unhealthy
+            sys.exit(1)
+          PY
+      interval: 10s   # Ejecuta el healthcheck cada 10 segundos
+      timeout: 3s     # Si tarda más de 3s en responder, se considera fallo
+      retries: 1     # Marca como unhealthy solo tras 10 fallos consecutivos
+
+networks:
+  red_prod:
+    name: red_prod  
+
+volumes:
+  vol_prod:
+    name: vol_prod  

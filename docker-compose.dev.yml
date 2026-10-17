@@ -1,0 +1,68 @@
+name: redes_prac1
+
+services:
+  db_dev:
+    image: postgres:16-alpine
+    container_name: db_dev
+    env_file: .env.dev
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - vol_dev:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    networks:
+      - red_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h localhost -p 5432"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  web_dev:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: web_dev
+    depends_on:
+      db_dev:
+        condition: service_healthy
+    env_file: .env.dev
+    ports:
+      - "${WEB_PORT}:8000"
+    networks:
+      - red_dev
+      
+    healthcheck:
+      # Comprueba que Flask y PostgreSQL funcionan correctamente.
+      # Ejecuta una petición HTTP al endpoint interno /status
+      # y verifica que la base de datos esté conectada.
+      test:
+        - CMD
+        - python
+        - -c
+        - >
+          import json, urllib.request, sys;
+          j = json.load(urllib.request.urlopen('http://localhost:8000/status', timeout=3));
+          sys.exit(0 if j.get('db_connected') else 1)
+
+      # Ejecuta la comprobación cada 10 segundos.
+      interval: 10s
+
+      # Tiempo máximo permitido para cada comprobación.
+      timeout: 5s
+
+      # Marca unhealthy después de 3 fallos consecutivos.
+      retries: 3
+
+      # Da tiempo a Flask para arrancar antes de contar los fallos.
+      start_period: 10s
+
+networks:
+  red_dev:
+    name: red_dev  
+
+volumes:
+  vol_dev:
+    name: vol_dev  

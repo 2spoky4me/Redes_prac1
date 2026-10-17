@@ -1,0 +1,15 @@
+# Credencials i variables d'entorn
+.env
+.env.*
+
+# Fitxers temporals de Python
+__pycache__/
+*.pyc
+.venv/
+
+# Fitxers comprimits
+*.zip
+
+# Fitxers del sistema
+.DS_Store
+Thumbs.db
