@@ -11,8 +11,7 @@ WORKDIR /app
 COPY --chown=webadmin:webadmin app.py /app/
 COPY --chown=webadmin:webadmin static/ /app/static/
 
-# 5️ Instalar Flask (sin cachear para que la imagen sea más ligera)
-RUN pip install --no-cache-dir flask psycopg2-binary
+# Instalar las dependencias necesarias para Flask, PostgreSQL y Redis
 RUN pip install --no-cache-dir flask psycopg2-binary redis
 
 # 6️ Cambiar al usuario normal (no root)

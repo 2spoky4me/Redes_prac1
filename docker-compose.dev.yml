@@ -1,4 +1,4 @@
-name: redes_prac1
+name: redes_prac1_dev
 
 services:
   db_dev:
@@ -33,7 +33,7 @@ services:
       - "${WEB_PORT}:8000"
     networks:
       - red_dev
-      
+
     healthcheck:
       # Comprueba que Flask y PostgreSQL funcionan correctamente.
       # Ejecuta una petición HTTP al endpoint interno /status
@@ -61,8 +61,10 @@ services:
 
 networks:
   red_dev:
-    name: red_dev  
+    name: red_dev
+    
 
 volumes:
   vol_dev:
-    name: vol_dev  
+    name: vol_dev
+    

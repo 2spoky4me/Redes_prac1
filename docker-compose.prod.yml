@@ -1,4 +1,4 @@
-name: redes_prac1
+name: redes_prac1_prod
 
 services:
   db_prod:
@@ -25,6 +25,13 @@ services:
     container_name: cache
     networks:
       - red_prod
+      
+      # Comprueba que Redis responde correctamente.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   web_prod:
     build:
@@ -42,27 +49,21 @@ services:
     networks:
       - red_prod
     healthcheck:
-    # Verifica que la web funciona de verdad (DB/Redis accesibles). Si no, marca unhealthy.
+      # Comprueba que Flask, PostgreSQL y Redis funcionan correctamente.
+      # Consulta /status y verifica las dos conexiones.
       test:
-        -  CMD-SHELL   # Ejecuta el comando usando un shell dentro del contenedor
+        - CMD
+        - python
+        - -c
         - >
-          python - << 'PY'     # Inicia un script Python embebido
-          import json, urllib.request, sys
-          try:
-            # Llama al endpoint /status de la propia aplicación
-            j = json.load(urllib.request.urlopen('http://localhost:8000/status'))
-          
-            # Si DB y Redis están conectados, devolver exit 0 (healthy)
-            # Si alguno falla → exit 1 (unhealthy)
-            sys.exit(0 if j.get('db_connected') and j.get('cache_connected') else 1)
-          except:
-            # Si ocurre cualquier error (endpoint no responde, JSON inválido, etc.)
-            # se marca como unhealthy
-            sys.exit(1)
-          PY
-      interval: 10s   # Ejecuta el healthcheck cada 10 segundos
-      timeout: 3s     # Si tarda más de 3s en responder, se considera fallo
-      retries: 1     # Marca como unhealthy solo tras 10 fallos consecutivos
+          import json, urllib.request, sys;
+          j = json.load(urllib.request.urlopen('http://localhost:8000/status', timeout=3));
+          sys.exit(0 if j.get('db_connected') and j.get('cache_connected') else 1)
+
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
   red_prod:
