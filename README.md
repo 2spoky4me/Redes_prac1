@@ -1,394 +1,421 @@
-1) Guía de instalación y ejecución paso a paso
+## Guía de instalación y ejecución paso a paso
 
-Este proyecto se puede ejecutar fácilmente mediante Docker Compose y el Makefile incluido.
-Los pasos siguientes permiten levantar tanto el entorno de desarrollo como el de producción, verificar que funcionan correctamente y limpiarlos al finalizar.
+### 1. Requisitos previos
 
-Requisitos previos
+Para ejecutar la práctica es necesario disponer de:
 
-Tener Docker Desktop (Windows/Mac) o Docker Engine + Docker Compose (Linux) instalado y en ejecución.
+- Docker Desktop instalado y en ejecución.
+- Docker Compose (incluido en Docker Desktop).
+- Make instalado para utilizar las órdenes del Makefile.
+- Git para descargar el repositorio.
 
-Todos los comandos deben ejecutarse desde la raíz del proyecto (Redes_prac1/).
+La aplicación utiliza Python y Flask, pero no es necesario instalarlos en el equipo, ya que se ejecutan dentro de contenedores Docker.
 
-Estructura del proyecto
-Redes_prac1/
-│
-├── app/                     → Código de la aplicación Flask
-│   ├── app.py               → Lógica principal
-│   └── static/logo.png      → Imagen mostrada solo en producción
-│
-├── db/init/                 → Scripts SQL que inicializan la base de datos
-│   └── 001_schema.sql
-│
-├── docker-compose.dev.yml   → Configuración del entorno de desarrollo
-├── docker-compose.prod.yml  → Configuración del entorno de producción
-├── .env.dev                 → Variables de entorno de desarrollo
-├── .env.prod                → Variables de entorno de producción
-├── Dockerfile               → Imagen base para el servicio Flask
-└── Makefile                 → Simplifica el uso de Docker Compose
+### 2. Descargar el proyecto
 
-Entorno de desarrollo (DEV)
+Clonar el repositorio desde GitHub:
 
-Levantar los contenedores:
+```bash
+git clone https://github.com/2spoky4me/Redes_prac1.git
+cd Redes_prac1
+```
 
+Todas las órdenes siguientes deben ejecutarse desde la carpeta que contiene el archivo `Makefile`.
+
+### 3. Configurar las variables de entorno
+
+Antes de iniciar los contenedores, es necesario crear dos archivos en la raíz del proyecto:
+
+- `.env.dev`: configuración del entorno de desarrollo.
+- `.env.prod`: configuración del entorno de producción.
+
+Estos archivos no están incluidos en GitHub por seguridad, ya que contienen las credenciales de la base de datos.
+
+**Ejemplo de `.env.dev`:**
+
+```env
+APP_ENV=dev
+WEB_PORT=8000
+
+POSTGRES_USER=user_db
+POSTGRES_PASSWORD=CAMBIAR_PASSWORD_DEV
+POSTGRES_DB=uprac1_db
+
+DB_HOST=db_dev
+DB_PORT=5432
+DB_USER=user_db
+DB_PASSWORD=CAMBIAR_PASSWORD_DEV
+DB_NAME=uprac1_db
+```
+
+**Ejemplo de `.env.prod`:**
+
+```env
+APP_ENV=prod
+WEB_PORT=8080
+
+POSTGRES_USER=user_db
+POSTGRES_PASSWORD=CAMBIAR_PASSWORD_PROD
+POSTGRES_DB=uprac1_db
+
+DB_HOST=db_prod
+DB_PORT=5432
+DB_USER=user_db
+DB_PASSWORD=CAMBIAR_PASSWORD_PROD
+DB_NAME=uprac1_db
+
+REDIS_HOST=cache
+REDIS_PORT=6379
+```
+
+Las contraseñas deben ser sustituidas por valores propios. En cada entorno, `POSTGRES_PASSWORD` y `DB_PASSWORD` deben coincidir.
+
+### 4. Construir e iniciar los entornos
+
+Para iniciar el entorno de desarrollo:
+
+```bash
 make up-dev
+```
 
-Esto creará:
+Este comando construye la imagen de Flask y levanta dos contenedores:
 
-El contenedor web_dev (aplicación Flask)
+- `web_dev`: aplicación Flask.
+- `db_dev`: base de datos PostgreSQL.
 
-El contenedor db_dev (PostgreSQL)
+Para iniciar el entorno de producción:
 
-La red red_dev
-
-El volumen vol_dev para mantener los datos persistentes
-
-Comprobar que funciona:
-
-http://localhost:8000/
- → mensaje de bienvenida
-
-http://localhost:8000/status
- → estado de la base de datos
-
-http://localhost:8000/form
- → formulario para añadir usuarios
-
-http://localhost:8000/list
- → lista de usuarios guardados
-
-Apagar el entorno:
-
-make down-dev
-
-Los datos añadidos se mantienen en el volumen vol_dev, incluso si se eliminan los contenedores.
-
-Entorno de producción (PROD)
-
-Levantar el entorno:
-
+```bash
 make up-prod
+```
 
-Esto creará:
+Este comando levanta tres contenedores:
 
-El contenedor web_prod (Flask con caché e imagen estática)
+- `web_prod`: aplicación Flask.
+- `db_prod`: base de datos PostgreSQL.
+- `cache`: servidor Redis.
 
-El contenedor db_prod (PostgreSQL)
+Ambos entornos pueden funcionar simultáneamente, ya que utilizan puertos, redes y volúmenes separados.
 
-El contenedor cache (Redis)
+### 5. Acceder a la aplicación
 
-La red red_prod
+Una vez iniciados los contenedores, abrir las siguientes direcciones en el navegador:
 
-El volumen vol_prod para persistencia de datos
+| Funcionalidad | Desarrollo | Producción |
+|---|---|---|
+| Página principal | http://localhost:8000 | http://localhost:8080 |
+| Formulario | http://localhost:8000/form | http://localhost:8080/form |
+| Listado de registros | http://localhost:8000/list | http://localhost:8080/list |
+| Estado de los servicios | http://localhost:8000/status | http://localhost:8080/status |
+| Prueba de Redis | No disponible | http://localhost:8080/cache-test |
 
-Comprobar funcionamiento:
+Desde el formulario se pueden introducir registros en PostgreSQL y consultarlos posteriormente desde el listado.
 
-http://localhost:8080/
- → mensaje de bienvenida
+En producción, el listado utiliza Redis como sistema de caché.
 
-http://localhost:8080/form
- → formulario con imagen cacheada
+### 6. Comprobar el estado de los contenedores
 
-http://localhost:8080/status
- → debe mostrar "db_connected": true, "cache_connected": true
+Para visualizar todos los contenedores:
 
-http://localhost:8080/cache-test
- → incrementa el contador de visitas con Redis
+```bash
+make ps
+```
 
-Apagar el entorno:
+Para consultar los contenedores de un entorno concreto:
 
-make down-prod
+```bash
+make ps-dev
+make ps-prod
+```
 
+Tras finalizar el arranque, los cinco contenedores deben aparecer con estado `healthy`.
 
-El entorno de producción utiliza Redis para cachear datos y una imagen estática servida con cabeceras de caché, simulando un entorno real.
+También se puede comprobar el estado de los servicios desde el navegador mediante `/status`.
 
-Limpiar todo
+En desarrollo, PostgreSQL debe estar conectado. En producción deben estar conectados tanto PostgreSQL como Redis.
 
-Para eliminar todos los contenedores, redes y volúmenes (de dev y prod):
+### 7. Detener los entornos
 
-make clean
+Para detener y eliminar los contenedores de desarrollo sin borrar sus datos:
 
-
-Este comando borra también los volúmenes vol_dev y vol_prod, por lo que se perderán los datos almacenados en la base de datos.
-
-2) Descripción de los entornos dev y prod
-
-El proyecto está diseñado para funcionar en dos entornos claramente diferenciados: desarrollo (dev) y producción (prod).
-Ambos entornos utilizan contenedores Docker, pero con configuraciones y objetivos distintos, lo que permite probar la aplicación en local antes de desplegarla en un entorno más realista.
-
-2.1 Variables de entorno (.env)
-
-Cada entorno (dev y prod) tiene su propio archivo .env con los valores necesarios para configurar los servicios.
-Estas variables permiten definir de forma flexible el comportamiento de la aplicación sin modificar el código.
-
-Variable	Entorno	Descripción	Motivo / Valor
-APP_ENV	Ambos	Indica si la aplicación se ejecuta en modo dev o prod.	Flask usa esta variable para activar o desactivar características como la caché o la imagen estática.
-WEB_PORT	Ambos	Puerto en el que Flask expone la aplicación.	En desarrollo es 8000 y en producción 8080, para evitar conflictos entre entornos.
-DB_HOST	Ambos	Nombre del contenedor que actúa como servidor de base de datos.	Permite que Flask se conecte a la base de datos interna (db_dev o db_prod).
-DB_NAME	Ambos	Nombre de la base de datos principal.	Se mantiene igual en ambos entornos para simplificar la configuración.
-DB_USER	Ambos	Usuario de la base de datos PostgreSQL.	Necesario para autenticarse contra el servidor SQL.
-DB_PASSWORD	Ambos	Contraseña asociada al usuario de la base de datos.	Se define solo en los .env, nunca en el código por seguridad.
-DB_PORT	Ambos	Puerto estándar de PostgreSQL (5432).	Es el puerto oficial de PostgreSQL y el que escucha por defecto la imagen oficial.
-REDIS_HOST	Solo prod	Nombre del contenedor Redis (cache).	Permite que Flask conecte con el servicio de caché solo en producción.
-REDIS_PORT	Solo prod	Puerto estándar de Redis (6379).	Se mantiene el valor por defecto para compatibilidad con la imagen oficial de Redis.
-
-2.2 Entorno de desarrollo (dev)
-
-El entorno dev está pensado para programar, probar y depurar la aplicación de forma rápida.
-Utiliza contenedores ligeros que permiten levantar la base de datos y la aplicación Flask con un solo comando (make up-dev).
-Los datos de la base de datos se guardan en un volumen persistente llamado vol_dev, de modo que si se reinicia o elimina el contenedor, la información no se pierde.
-
-En este entorno no hay caché de Redis ni archivos estáticos con almacenamiento en caché, lo que facilita ver los cambios de código o contenido al instante.
-El contenedor principal se llama web_dev, la base de datos db_dev y se comunican mediante una red interna llamada red_dev.
-De esta forma, todo el entorno de desarrollo queda aislado y no interfiere con el entorno de producción.
-
-2.3 Entorno de producción (prod)
-
-El entorno prod simula un despliegue real en un servidor.
-Está optimizado para rendimiento y estabilidad, incluyendo un servicio adicional de caché Redis que mejora la eficiencia de la aplicación.
-Los contenedores principales son web_prod (la aplicación Flask), db_prod (la base de datos PostgreSQL) y cache (el servicio Redis).
-Todos ellos se comunican mediante una red interna privada llamada red_prod.
-
-La base de datos en producción también utiliza un volumen persistente, llamado vol_prod, que garantiza que los datos se mantengan incluso si se eliminan o reinician los contenedores.
-Además, en este entorno Flask sirve una pequeña imagen estática que se guarda en caché durante una hora en el navegador, lo que reduce las peticiones al servidor y demuestra el uso de caché en producción.
-
-El entorno de producción se puede levantar con el comando make up-prod, y su puerto principal es el 8080, mientras que el entorno de desarrollo utiliza el 8000.
-
-3) Diagrama de arquitectura del servicio
-
-
-           ┌───────────────────────────┐
-           │        Navegador          │
-           │     (localhost:PUERTO)    │
-           └─────────────┬─────────────┘
-                         │
-                  Peticiones HTTP
-                         │
-          ┌──────────────▼──────────────┐
-          │         web_* (Flask)       │
-          │  * web_dev  (puerto 8000)   │
-          │  * web_prod (puerto 8080)   │
-          └───────────┬───────┬────────┘
-                      │       │
-           (red_dev)  │       │  (red_prod)
-                      │       │
-        ┌─────────────▼───┐   │     ┌───────────────▼──────────────┐
-        │   db_dev/db_prod │   │     │          cache (Redis)       │
-        │  PostgreSQL      │   │     │    (solo en producción)      │
-        └───────┬──────────┘   │     └──────────────┬───────────────┘
-                │              │                    │
-          vol_dev (dev)   vol_prod (prod)     Datos temporales en memoria
-          Persistencia BD  Persistencia BD
-
-Resumen por entorno:
-
-Dev: web_dev + db_dev en red_dev, con volumen vol_dev. Sin Redis ni caché de navegador.
-
-Prod: web_prod + db_prod + cache en red_prod, con volumen vol_prod. Imagen estática cacheada y endpoint de caché (/cache-test).
-
-4) Resultados de las pruebas y verificaciones
-
-Durante el desarrollo y despliegue del proyecto se realizaron diversas pruebas para garantizar el correcto funcionamiento de los contenedores, la base de datos, la caché y la persistencia de los datos. A continuación se resumen los resultados más relevantes.
-
-Prueba 1: Arranque correcto de los servicios
-
-Se ejecutó el comando make up-dev y make up-prod para levantar ambos entornos.
-En ambos casos, los contenedores se iniciaron correctamente y mostraron el estado “healthy” al ejecutar:
-
-docker compose --env-file .env.dev -f docker-compose.dev.yml ps
-docker compose --env-file .env.prod -f docker-compose.prod.yml ps
-
-
-Resultado:
-Los contenedores web_dev y db_dev en desarrollo funcionaron correctamente.
-En producción, los contenedores web_prod, db_prod y cache también funcionaron correctamente.
-
-Prueba 2: Persistencia de datos con volúmenes
-
-Se añadió un registro mediante el formulario /form y posteriormente se detuvieron y eliminaron los contenedores con:
-
+```bash
 make down-dev
+```
+
+Para producción:
+
+```bash
 make down-prod
+```
+
+Para detener ambos entornos:
+
+```bash
+make down
+```
+
+Estos comandos conservan los volúmenes, por lo que los registros de PostgreSQL estarán disponibles al volver a iniciar los contenedores.
+
+### 8. Eliminar completamente los recursos
+
+Para eliminar los contenedores, las redes y los volúmenes gestionados por ambos entornos:
+
+```bash
+make clean
+```
+
+**Advertencia:** este comando elimina los volúmenes de PostgreSQL y, por tanto, los registros almacenados. Debe utilizarse únicamente cuando se desee reiniciar los datos de la práctica.
+
+## Descripción de los entornos DEV y PROD
+
+La práctica implementa dos entornos independientes mediante Docker Compose: **desarrollo (DEV)** y **producción (PROD)**.
+
+Ambos utilizan la misma aplicación web desarrollada con Python y Flask, conectada a una base de datos PostgreSQL. La principal diferencia es que producción incorpora Redis para almacenar temporalmente los resultados de determinadas consultas y reducir los accesos a la base de datos.
+
+### Entorno de desarrollo (DEV)
+
+El entorno DEV está diseñado para probar el funcionamiento básico de la aplicación y su conexión con PostgreSQL.
+
+Está formado por dos contenedores:
+
+- **web_dev:** ejecuta la aplicación Flask y permite acceder mediante el puerto `8000`.
+- **db_dev:** ejecuta PostgreSQL 16 y almacena los registros introducidos mediante los formularios.
+
+**Características principales:**
+
+- Acceso desde `http://localhost:8000`.
+- Red interna Docker `red_dev`.
+- Volumen persistente `vol_dev` para almacenar los datos de PostgreSQL.
+- Comunicación entre Flask y PostgreSQL mediante la red interna.
+- Consultas directas a PostgreSQL, sin utilizar Redis.
+- Endpoint `/status` para comprobar la conexión con la base de datos.
+- Healthchecks para verificar el estado de los contenedores.
+
+La base de datos no publica ningún puerto hacia el exterior; únicamente la aplicación web es accesible desde el equipo anfitrión.
+
+### Entorno de producción (PROD)
+
+El entorno PROD incorpora Redis como sistema de caché para mejorar el acceso a los registros almacenados en PostgreSQL.
+
+Está formado por tres contenedores:
+
+- **web_prod:** ejecuta la aplicación Flask y permite acceder mediante el puerto `8080`.
+- **db_prod:** ejecuta PostgreSQL 16 y almacena los registros de producción.
+- **cache:** ejecuta Redis 7 y mantiene en memoria los resultados de las consultas cacheadas.
+
+**Características principales:**
+
+- Acceso desde `http://localhost:8080`.
+- Red interna Docker `red_prod`.
+- Volumen persistente `vol_prod` para los datos de PostgreSQL.
+- Comunicación interna entre Flask, PostgreSQL y Redis.
+- Caché Redis aplicada a las consultas del listado `/list`.
+- Invalidación de la caché al insertar nuevos registros.
+- Ruta `/cache-test` para comprobar el funcionamiento de Redis mediante un contador de visitas.
+- Endpoint `/status` para verificar las conexiones con PostgreSQL y Redis.
+- Healthchecks para supervisar los tres contenedores.
+
+En producción, la primera consulta a `/list` obtiene los registros desde PostgreSQL (**MISS**) y guarda el resultado en Redis. Las siguientes consultas recuperan los datos de Redis (**HIT**). Al insertar un nuevo registro, se invalida la caché para que la próxima consulta obtenga la información actualizada.
+
+PostgreSQL y Redis no publican sus puertos hacia el exterior.
+
+### Comparación entre entornos
+
+| Característica | DEV | PROD |
+|---|---|---|
+| Aplicación | Flask | Flask |
+| Puerto web | 8000 | 8080 |
+| Base de datos | PostgreSQL 16 | PostgreSQL 16 |
+| Redis | No | Sí, Redis 7 |
+| Contenedores | 2 | 3 |
+| Red Docker | `red_dev` | `red_prod` |
+| Volumen PostgreSQL | `vol_dev` | `vol_prod` |
+| Persistencia de datos | Sí | Sí |
+| Healthchecks | Sí | Sí |
+| Caché en `/list` | No | Sí |
+
+### Independencia de los entornos
+
+DEV y PROD utilizan redes, volúmenes y bases de datos independientes. Por tanto, los registros introducidos en un entorno no aparecen en el otro.
+
+Ambos pueden ejecutarse simultáneamente sin conflictos, y la detención o eliminación de los contenedores de un entorno no implica eliminar los datos del otro.
+
+Esta separación permite probar cambios en desarrollo sin modificar la información almacenada en producción.
+
+## Diagrama de arquitectura del servicio
+
+```mermaid
+flowchart TB
+    U["Usuario / Navegador"]
+
+    subgraph DEV["DEV - red_dev"]
+        WD["Flask - web_dev"]
+        BD[("PostgreSQL - db_dev")]
+        VD[("Volumen vol_dev")]
+        WD --> BD
+        BD --- VD
+    end
+
+    subgraph PROD["PROD - red_prod"]
+        WP["Flask - web_prod"]
+        BP[("PostgreSQL - db_prod")]
+        R[("Redis - cache")]
+        VP[("Volumen vol_prod")]
+        WP --> BP
+        WP --> R
+        BP --- VP
+    end
+
+    U -->|"localhost:8000"| WD
+    U -->|"localhost:8080"| WP
+```
+
+## Resultados de las pruebas y verificaciones
+
+Se han realizado las siguientes pruebas para comprobar el correcto funcionamiento de ambos entornos.
+
+| Prueba | Resultado |
+|---|---|
+| Despliegue de DEV mediante `make up-dev` | Correcto |
+| Despliegue de PROD mediante `make up-prod` | Correcto |
+| Cinco contenedores con estado `healthy` | Correcto |
+| Funcionamiento de los formularios | Correcto |
+| Inserción y consulta de registros en PostgreSQL | Correcto |
+| Independencia de las bases de datos DEV y PROD | Correcto |
+| Persistencia de datos al eliminar y recrear PostgreSQL en DEV | Correcto |
+| Persistencia de datos al eliminar y recrear PostgreSQL en PROD | Correcto |
+| Detección de fallos de PostgreSQL mediante `/status` | Correcto |
+| Detección de desconexión y recuperación de Redis mediante `/status` | Correcto |
+| Caché Redis: primera consulta MISS y siguientes HIT | Correcto |
+| Invalidación de la caché al insertar nuevos registros | Correcto |
+
+### Prueba de persistencia
+
+Se eliminaron los contenedores PostgreSQL de DEV y PROD mediante `make remove-db-dev` y `make remove-db-prod`.
+
+Posteriormente, se recrearon mediante `make recreate-db-dev` y `make recreate-db-prod`.
+
+**Resultado:** los registros introducidos previamente continuaban disponibles gracias a los volúmenes persistentes.
+
+### Prueba de disponibilidad de servicios
+
+Se comprobó que el endpoint `/status` detectaba la desconexión de PostgreSQL y Redis, así como su recuperación al volver a iniciar los servicios.
+
+**Resultado:** el estado de las conexiones se actualizaba correctamente.
+
+### Prueba de caché Redis
+
+En el entorno PROD se comprobó el siguiente comportamiento:
+
+1. Primera consulta a `/list`: **PostgreSQL (MISS)**.
+2. Segunda consulta: **Redis (HIT)**.
+3. Inserción de un nuevo registro: invalidación de la caché.
+4. Nueva consulta: **PostgreSQL (MISS)**.
+5. Consulta posterior: **Redis (HIT)**.
+
+**Resultado:** el sistema de caché funciona correctamente y evita consultas innecesarias a PostgreSQL.
 
 
-Luego se levantaron nuevamente con make up-dev y make up-prod.
-Los registros previamente añadidos seguían presentes en la base de datos, lo que demuestra que los volúmenes (vol_dev y vol_prod) conservan los datos correctamente.
+Funcionamiento de los healthchecks
 
-Resultado:
-La base de datos mantiene los datos tras eliminar los contenedores.
+En esta práctica se utilizan healthchecks de Docker para comprobar automáticamente el estado de los cinco contenedores.
 
-Prueba 3: Endpoint de salud /status
+Las comprobaciones están definidas en los archivos docker-compose.dev.yml y docker-compose.prod.yml.
 
-El endpoint /status devuelve un JSON con el estado de conexión de los servicios:
+1. Healthcheck de PostgreSQL (db_dev y db_prod)
+
+Se utiliza el comando pg_isready, que comprueba si PostgreSQL está preparado para aceptar conexiones.
+
+Si responde correctamente, Docker considera el contenedor healthy. Si deja de responder durante varias comprobaciones consecutivas, pasa a unhealthy.
+
+2. Healthcheck de Flask (web_dev y web_prod)
+
+Los contenedores web ejecutan un pequeño script de Python que realiza una petición HTTP al endpoint /status.
+
+DEV: comprueba que db_connected sea true.
+
+PROD: comprueba que tanto db_connected como cache_connected sean true.
+
+Si las condiciones se cumplen, el healthcheck termina correctamente. En caso contrario, devuelve un error y Docker puede marcar el contenedor como unhealthy.
+
+3. Healthcheck de Redis (cache)
+
+Redis utiliza el comando:
+
+redis-cli ping
+
+Si Redis funciona, responde PONG, indicando que está disponible. Si no responde, el healthcheck falla.
+
+4. Cómo se muestran los resultados
+
+Para consultar el estado de los contenedores ejecutamos:
+
+make ps
+
+Docker muestra el estado junto a cada contenedor:
+
+health: starting: todavía se están realizando las comprobaciones iniciales.
+
+healthy: las comprobaciones se superan correctamente.
+
+unhealthy: las comprobaciones están fallando.
+
+Además, la aplicación dispone del endpoint /status, que muestra las conexiones con los servicios:
+
+DEV: http://localhost:8000/status
+
+{
+  "db_connected": true,
+  "cache_connected": false
+}
+
+PROD: http://localhost:8080/status
 
 {
   "db_connected": true,
   "cache_connected": true
 }
 
+En DEV, cache_connected aparece como false porque no se utiliza Redis.
 
-Para comprobar el comportamiento dinámico, se detuvo el servicio de Redis en producción:
+## Instrucciones de uso del Makefile
 
-docker stop cache
+El Makefile permite gestionar los entornos DEV y PROD mediante comandos sencillos, sin necesidad de escribir las instrucciones completas de Docker Compose.
 
+Los comandos deben ejecutarse desde la carpeta raíz del proyecto.
 
-Al recargar /status, el valor de "cache_connected" pasó a false, confirmando que el sistema detecta los fallos en tiempo real.
+| Comando | Función |
+|---|---|
+| `make build` | Construye las imágenes de ambos entornos. |
+| `make up-dev` | Inicia DEV (Flask + PostgreSQL). |
+| `make up-prod` | Inicia PROD (Flask + PostgreSQL + Redis). |
+| `make ps` | Muestra el estado de todos los contenedores. |
+| `make ps-dev` / `make ps-prod` | Muestra los contenedores de cada entorno. |
+| `make down-dev` / `make down-prod` | Detiene y elimina un entorno conservando los datos. |
+| `make down` | Detiene y elimina ambos entornos conservando los datos. |
+| `make remove-db-dev` / `make remove-db-prod` | Elimina el contenedor PostgreSQL sin borrar su volumen. |
+| `make recreate-db-dev` / `make recreate-db-prod` | Recrea PostgreSQL reutilizando el volumen existente. |
+| `make stop-cache` | Detiene Redis para comprobar la detección de fallos. |
+| `make start-cache` | Vuelve a iniciar Redis. |
+| `make clean` | Elimina los entornos y sus volúmenes. **Se pierden los datos almacenados.** |
 
-Resultado:
-El healthcheck refleja correctamente el estado actual de los servicios dependientes.
+### Ejemplo de ejecución
 
-Prueba 4: Caché en producción
+Para iniciar ambos entornos:
 
-En el entorno de producción, el formulario /form muestra una imagen (logo.png).
-Esta imagen se almacena en caché durante una hora en el navegador.
-Se verificó que, tras la primera carga, la siguiente solicitud obtiene un código HTTP 304 (Not Modified), lo que indica que el navegador la está sirviendo desde su caché sin volver a pedirla al servidor.
+```bash
+make up-dev
+make up-prod
+make ps
+```
 
-Resultado:
-La caché estática del navegador funciona correctamente.
+Una vez iniciados, las aplicaciones están disponibles en:
 
-Prueba 5: Redis como sistema de caché
+- **DEV:** http://localhost:8000
+- **PROD:** http://localhost:8080
 
-En el entorno de producción se ejecutó el endpoint /cache-test, que incrementa un contador almacenado en Redis:
+Para detener ambos entornos sin perder los datos:
 
-{"ok": true, "visitas": 1}
-
-
-Al repetir la petición, el contador aumentó (visitas: 2, visitas: 3, etc.), confirmando que los datos se mantienen temporalmente en memoria sin consultar la base de datos.
-
-Resultado:
-Redis funciona correctamente como sistema de caché temporal en producción.
-
-Prueba 6: Reconstrucción completa
-
-Se ejecutó make clean para eliminar contenedores, redes y volúmenes, y después se reconstruyeron ambos entornos desde cero con make rebuild-dev y make rebuild-prod.
-El sistema se levantó sin errores, los esquemas SQL se cargaron automáticamente y los servicios quedaron disponibles.
-
-Resultado:
-El entorno puede reconstruirse completamente sin intervención manual.
-
-Conclusión:
-Todas las pruebas de conexión, persistencia, caché, healthcheck y reconstrucción fueron satisfactorias.
-El sistema cumple con los objetivos de aislar los entornos, mantener persistencia de datos, reflejar el estado de los servicios y aprovechar mecanismos de caché en producción.
-
-5) Explicación de los healthchecks
-
-En esta práctica se han implementado varios healthchecks con el objetivo de supervisar el estado de los servicios que forman la aplicación (base de datos, backend Flask y caché Redis) y garantizar que el sistema detecte y gestione automáticamente posibles fallos.
-
-Tipos de healthchecks utilizados
-
-El proyecto implementa dos tipos de healthchecks complementarios:
-
-Healthchecks de Docker → definidos en los archivos docker-compose.dev.yml y docker-compose.prod.yml, que son los que realmente utiliza Docker para marcar un contenedor como “healthy” o “unhealthy”.
-
-Healthcheck interno de la aplicación Flask → mediante el endpoint /status, que devuelve el estado actual de la base de datos y de Redis.
-
-5.1. Healthcheck del servicio PostgreSQL
-healthcheck:
-  test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h localhost -p 5432"]
-  interval: 5s
-  timeout: 2s
-  retries: 10
-
-
-Qué hace:
-Ejecuta el comando pg_isready, una herramienta nativa de PostgreSQL, que comprueba si el servidor está listo para aceptar conexiones.
-
-Por qué se hace:
-
-Garantiza que la base de datos esté completamente inicializada antes de que otros servicios (como Flask) intenten conectarse.
-
-Si PostgreSQL tarda unos segundos en arrancar, este healthcheck evita errores de conexión prematuros.
-
-Además, si la base de datos se detiene o deja de responder, Docker marcará el contenedor como unhealthy.
-
-5.2. Healthcheck del servicio Flask
-healthcheck:
-  test:
-    - CMD-SHELL
-    - |
-      python - << 'PY'
-      import json, urllib.request, sys
-      j = json.load(urllib.request.urlopen('http://localhost:8000/status'))
-      sys.exit(0 if j.get('db_connected') else 1)
-      PY
-  interval: 10s
-  timeout: 3s
-  retries: 10
-
-
-Qué hace:
-Ejecuta un pequeño script en Python dentro del contenedor del servicio web que:
-
-Llama al endpoint /status del propio servidor Flask.
-
-Analiza la respuesta JSON.
-
-Si el campo "db_connected" es true, el healthcheck pasa con éxito (código 0).
-Si no, devuelve error (código 1) y Docker marca el contenedor como unhealthy.
-
-Por qué se hace:
-
-Permite comprobar no solo que el contenedor de Flask esté “encendido”, sino que realmente tenga conexión con la base de datos.
-
-Detecta fallos en dependencias externas sin necesidad de reiniciar manualmente.
-
-Es una validación más completa que simplemente revisar si el proceso de Flask sigue corriendo.
-
-5.3. Healthcheck del servicio Redis (solo en producción)
-healthcheck:
-  test: ["CMD", "redis-cli", "ping"]
-  interval: 10s
-  timeout: 3s
-  retries: 5
-
-
-Qué hace:
-Usa el cliente oficial redis-cli para enviar el comando PING al servidor Redis.
-Si la respuesta es PONG, el contenedor se considera saludable.
-
-Por qué se hace:
-
-Asegura que el servicio de caché esté disponible antes de que Flask intente usarlo.
-
-Si Redis falla o se detiene, el healthcheck lo detecta automáticamente.
-
-Evita tiempos de espera innecesarios en la aplicación cuando intenta conectar con Redis.
-
-5.4. Endpoint /status dentro de Flask
-@app.route("/status")
-def status():
-    db_ok = db_conn_ok()
-    cache_ok = False
-    if r:
-        try:
-            r.ping()
-            cache_ok = True
-        except Exception:
-            cache_ok = False
-    return jsonify({"db_connected": db_ok, "cache_connected": cache_ok})
-
-
-Qué hace:
-Devuelve un JSON que refleja el estado actual de los servicios dependientes:
-
-db_connected: indica si la conexión a la base de datos PostgreSQL es correcta.
-
-cache_connected: indica si Redis está disponible y responde al comando PING.
-
-Por qué se hace:
-Este endpoint permite comprobar el estado del sistema en tiempo real desde un navegador o herramienta externa.
-También es el endpoint que el healthcheck de Docker usa internamente para evaluar el estado del contenedor.
-
-6) Instrucciones de uso del Makefile o script (Makefile en mi caso)
-
-| Comando             | Descripción rápida                                | Entorno |
-| ------------------- | ------------------------------------------------- | ------- |
-| `make up-dev`       | Levanta el entorno de desarrollo                  | Dev     |
-| `make down-dev`     | Detiene el entorno de desarrollo                  | Dev     |
-| `make rebuild-dev`  | Reconstruye imágenes en dev                       | Dev     |
-| `make up-prod`      | Levanta el entorno de producción (con Redis)      | Prod    |
-| `make down-prod`    | Detiene el entorno de producción                  | Prod    |
-| `make rebuild-prod` | Reconstruye imágenes en prod                      | Prod    |
-| `make ps`           | Muestra contenedores activos                      | Ambos   |
-| `make logs`         | Muestra los registros (logs)                      | Ambos   |
-| `make clean`        | Elimina todos los contenedores, redes y volúmenes | Ambos   |
-
+```bash
+make down
+```
